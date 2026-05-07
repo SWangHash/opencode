@@ -55,7 +55,6 @@ type RunRuntimeInput = {
   initialInput?: string
   thinking: boolean
   demo?: RunInput["demo"]
-  demoText?: RunInput["demoText"]
 }
 
 type RunLocalInput = {
@@ -72,7 +71,6 @@ type RunLocalInput = {
   initialInput?: string
   thinking: boolean
   demo?: RunInput["demo"]
-  demoText?: RunInput["demoText"]
 }
 
 type StreamState = {
@@ -431,8 +429,6 @@ async function runInteractiveRuntime(input: RunRuntimeInput): Promise<void> {
       if (input.demo) {
         await ensureSession()
         state.demo = createRunDemo({
-          mode: input.demo,
-          text: input.demoText,
           footer,
           sessionID: state.sessionID,
           thinking: input.thinking,
@@ -552,11 +548,9 @@ async function runInteractiveRuntime(input: RunRuntimeInput): Promise<void> {
                   state.sessionTitle = created.sessionTitle
                   state.agent = created.agent ?? state.agent
                   state.history = []
-                  includeFiles = true
-                  state.demo = input.demo
-                    ? createRunDemo({
-                        mode: input.demo,
-                        text: input.demoText,
+                   includeFiles = true
+                   state.demo = input.demo
+                     ? createRunDemo({
                         footer,
                         sessionID: state.sessionID,
                         thinking: input.thinking,
@@ -731,7 +725,6 @@ export async function runInteractiveLocalMode(input: RunLocalInput): Promise<voi
         initialInput: input.initialInput,
         thinking: input.thinking,
         demo: input.demo,
-        demoText: input.demoText,
         resolveSession: () => {
           if (session) {
             return session
@@ -784,7 +777,6 @@ export async function runInteractiveMode(input: RunInput & { createSession?: Cre
         initialInput: input.initialInput,
         thinking: input.thinking,
         demo: input.demo,
-        demoText: input.demoText,
         boot: async () => ({
           sdk: input.sdk,
           directory: input.directory,

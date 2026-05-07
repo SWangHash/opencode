@@ -11,9 +11,7 @@
 //   snap       → structured snapshot (code block, diff, task card) for rich
 //                scrollback entries
 //
-// Tools not in TOOL_RULES get fallback formatting. The registry is typed
-// against the actual tool parameter/metadata types so each formatter gets
-// proper type inference.
+// Tools not in TOOL_RULES get fallback formatting.
 import os from "os"
 import path from "path"
 import stripAnsi from "strip-ansi"
@@ -359,7 +357,7 @@ function runEdit(p: ToolProps<typeof EditTool>): ToolInline {
 function runWebSearch(p: ToolProps<typeof WebSearchTool>): ToolInline {
   return {
     icon: "◈",
-    title: `Exa Web Search "${p.input.query ?? ""}"`,
+    title: `Web Search "${p.input.query ?? ""}"`,
   }
 }
 
@@ -877,10 +875,10 @@ function scrollWebfetchStart(p: ToolProps<typeof WebFetchTool>): string {
 function scrollWebSearchStart(p: ToolProps<typeof WebSearchTool>): string {
   const query = p.input.query ?? ""
   if (!query) {
-    return "◈ Exa Web Search"
+    return "◈ Web Search"
   }
 
-  return `◈ Exa Web Search "${query}"`
+  return `◈ Web Search "${query}"`
 }
 
 function permEdit(p: ToolPermissionProps<typeof EditTool>): ToolPermissionInfo {
@@ -964,7 +962,7 @@ function permWebSearch(p: ToolPermissionProps<typeof WebSearchTool>): ToolPermis
   const query = p.input.query || ""
   return {
     icon: "◈",
-    title: `Exa Web Search "${query}"`,
+    title: `Web Search "${query}"`,
     lines: query ? [`Query: ${query}`] : [],
   }
 }

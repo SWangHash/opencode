@@ -179,6 +179,26 @@ describe("run runtime queue", () => {
     expect(seen).toEqual(["  hello  "])
   })
 
+  test("appends the user row before the turn starts", async () => {
+    const ui = footer()
+
+    await runPromptQueue({
+      footer: ui.api,
+      initialInput: "/fmt bash",
+      run: async () => {
+        expect(ui.commits).toEqual([
+          {
+            kind: "user",
+            text: "/fmt bash",
+            phase: "start",
+            source: "system",
+          },
+        ])
+        ui.api.close()
+      },
+    })
+  })
+
   test("runs queued prompts in order", async () => {
     const ui = footer()
     const seen: string[] = []

@@ -24,7 +24,6 @@ import { Filesystem } from "@/util/filesystem"
 import { createOpencodeClient, type OpencodeClient, type ToolPart } from "@opencode-ai/sdk/v2"
 import { Agent } from "@/agent/agent"
 import { Permission } from "@/permission"
-import type { RunDemo } from "./run/types"
 import { INTERACTIVE_INPUT_ERROR, resolveInteractiveStdin } from "./run/runtime.stdin"
 
 const runtimeTask = import("./run/runtime")
@@ -207,13 +206,9 @@ export const RunCommand = effectCmd({
         default: false,
       })
       .option("demo", {
-        type: "string",
-        choices: ["on", "permission", "question", "mix", "text"],
-        describe: "enable direct interactive demo slash commands",
-      })
-      .option("demo-text", {
-        type: "string",
-        describe: "text used with --demo text",
+        type: "boolean",
+        default: false,
+        describe: "enable direct interactive demo slash commands; pass one as the message to run it immediately",
       }),
   handler: Effect.fn("Cli.run")(function* (args) {
     const agentSvc = yield* Agent.Service
@@ -242,10 +237,6 @@ export const RunCommand = effectCmd({
 
       if (args.demo && !args.interactive) {
         die("--demo requires --interactive")
-      }
-
-      if (args["demo-text"] && args.demo !== "text") {
-        die("--demo-text requires --demo text")
       }
 
       if (args.interactive && args.format === "json") {
@@ -768,8 +759,7 @@ export const RunCommand = effectCmd({
             initialInput,
             createSession: createFreshSession,
             thinking,
-            demo: args.demo as RunDemo | undefined,
-            demoText: args["demo-text"],
+            demo: args.demo,
           })
         } catch (error) {
           dieInteractive(error)
@@ -800,8 +790,7 @@ export const RunCommand = effectCmd({
             files,
             initialInput,
             thinking,
-            demo: args.demo as RunDemo | undefined,
-            demoText: args["demo-text"],
+            demo: args.demo,
           })
         } catch (error) {
           dieInteractive(error)

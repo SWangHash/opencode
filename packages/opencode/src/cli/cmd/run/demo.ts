@@ -3,7 +3,8 @@
 // Enabled with `--demo`. Intercepts prompt submissions and generates synthetic
 // SDK events that feed through the real reducer and footer pipeline. This
 // lets you test scrollback formatting, permission UI, question UI, and tool
-// snapshots without making actual model calls.
+// snapshots without making actual model calls. Pass a demo slash command as
+// the initial interactive message to trigger a preview immediately.
 //
 // Slash commands:
 //   /permission [kind] → triggers a permission request variant
@@ -22,7 +23,6 @@ import type {
   PermissionReply,
   QuestionReject,
   QuestionReply,
-  RunDemo,
   RunPrompt,
   StreamCommit,
 } from "./types"
@@ -153,8 +153,6 @@ type State = {
 }
 
 type Input = {
-  mode: RunDemo
-  text?: string
   sessionID: string
   thinking: boolean
   limits: () => Record<string, number>
@@ -1145,28 +1143,6 @@ export function createRunDemo(input: Input) {
 
   const start = async (): Promise<void> => {
     intro(state)
-    if (input.mode === "on") {
-      return
-    }
-
-    if (input.mode === "permission") {
-      emitPermission(state, "edit")
-      return
-    }
-
-    if (input.mode === "question") {
-      emitQuestion(state, "multi")
-      return
-    }
-
-    if (input.mode === "mix") {
-      await emitFmt(state, "mix", "")
-      return
-    }
-
-    if (input.mode === "text") {
-      await emitFmt(state, "text", input.text ?? SAMPLE_MARKDOWN)
-    }
   }
 
   const prompt = async (line: RunPrompt, signal?: AbortSignal): Promise<boolean> => {

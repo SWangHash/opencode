@@ -162,16 +162,24 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
           state.ctrl = ctrl
 
           try {
-            const task = input.run(prompt, ctrl.signal).then(
-              () => ({ type: "done" as const }),
-              (error) => ({ type: "error" as const, error }),
-            )
-
             await input.footer.idle()
+            if (state.closed) {
+              break
+            }
+
             const commit = { kind: "user", text: prompt.text, phase: "start", source: "system" } as const
             input.trace?.write("ui.commit", commit)
             input.footer.append(commit)
             input.onSend?.(prompt)
+
+            if (state.closed) {
+              break
+            }
+
+            const task = input.run(prompt, ctrl.signal).then(
+              () => ({ type: "done" as const }),
+              (error) => ({ type: "error" as const, error }),
+            )
 
             const next = await Promise.race([task, stop.promise])
             if (next.type === "closed") {

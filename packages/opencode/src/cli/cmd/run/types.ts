@@ -56,11 +56,8 @@ export type RunInput = {
   files: RunFilePart[]
   initialInput?: string
   thinking: boolean
-  demo?: RunDemo
-  demoText?: string
+  demo?: boolean
 }
-
-export type RunDemo = "on" | "permission" | "question" | "mix" | "text"
 
 // The semantic role of a scrollback entry. Maps 1:1 to theme colors.
 export type EntryKind = "system" | "user" | "assistant" | "reasoning" | "tool" | "error"
