@@ -28,7 +28,7 @@ import {
   permissionShift,
   type PermissionOption,
 } from "./permission.shared"
-import { toolDiffView, toolFiletype } from "./tool"
+import { toolFiletype } from "./tool"
 import { transparent, type RunBlockTheme, type RunFooterTheme } from "./theme"
 import type { PermissionReply, RunDiffStyle } from "./types"
 
@@ -151,7 +151,6 @@ export function RunPermissionBody(props: {
   const [state, setState] = createSignal(createPermissionBodyState(props.request.id))
   const info = createMemo(() => permissionInfo(props.request))
   const ft = createMemo(() => toolFiletype(info().file))
-  const view = createMemo(() => toolDiffView(dims().width, props.diffStyle))
   const narrow = createMemo(() => dims().width < 80)
   const opts = createMemo(() => permissionOptions(state().stage))
   const busy = createMemo(() => state().submitting)
@@ -386,7 +385,7 @@ export function RunPermissionBody(props: {
                   >
                     <diff
                       diff={info().diff!}
-                      view={view()}
+                      view="unified"
                       filetype={ft()}
                       syntaxStyle={props.block.syntax}
                       showLineNumbers={true}

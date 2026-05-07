@@ -3,7 +3,7 @@ import { TextRenderable, type ColorInput, type ScrollbackRenderContext, type Scr
 import { createMemo } from "solid-js"
 import { entryBody, entryFlags } from "./entry.body"
 import { entryColor, entryLook, entrySyntax } from "./scrollback.shared"
-import { toolDiffView, toolFiletype, toolStructuredFinal } from "./tool"
+import { toolFiletype, toolStructuredFinal } from "./tool"
 import { RUN_THEME_FALLBACK, transparent, type RunTheme } from "./theme"
 import type { EntryLayout, RunEntryBody, ScrollbackOptions, StreamCommit } from "./types"
 
@@ -103,11 +103,7 @@ export function RunEntryContent(props: {
   const color = createMemo(() => entryColor(props.commit, theme()))
   const suppressBackgrounds = createMemo(() => props.opts?.suppressBackgrounds === true)
   const diffBg = (color: ColorInput) => (suppressBackgrounds() ? transparent : color)
-  const diffSign = (normal: ColorInput, highlight: ColorInput) => (suppressBackgrounds() ? normal : highlight)
-  const diffTitle = createMemo(() => (suppressBackgrounds() ? theme().block.text : theme().block.muted))
   const streaming = createMemo(() => props.commit.phase === "progress")
-  const width = createMemo(() => Math.max(1, Math.trunc(props.width ?? 80)))
-  const view = createMemo(() => toolDiffView(width(), props.opts?.diffStyle))
   const text = createMemo(() => {
     const next = body()
     return next.type === "text" ? next : undefined
@@ -200,14 +196,14 @@ export function RunEntryContent(props: {
       <box width="100%" flexDirection="column" gap={1}>
         {diff_snap.items.map((item) => (
           <box width="100%" flexDirection="column" gap={1}>
-            <text width="100%" wrapMode="word" fg={diffTitle()}>
+            <text width="100%" wrapMode="word" fg={theme().block.muted}>
               {item.title}
             </text>
             {item.diff.trim() ? (
               <box width="100%" paddingLeft={1}>
                 <diff
                   diff={item.diff}
-                  view={view()}
+                  view="unified"
                   filetype={toolFiletype(item.file)}
                   syntaxStyle={syntax()}
                   showLineNumbers={true}
@@ -217,8 +213,8 @@ export function RunEntryContent(props: {
                   addedBg={diffBg(theme().block.diffAddedBg)}
                   removedBg={diffBg(theme().block.diffRemovedBg)}
                   contextBg={diffBg(theme().block.diffContextBg)}
-                  addedSignColor={diffSign(theme().block.diffAdded, theme().block.diffHighlightAdded)}
-                  removedSignColor={diffSign(theme().block.diffRemoved, theme().block.diffHighlightRemoved)}
+                  addedSignColor={theme().block.diffHighlightAdded}
+                  removedSignColor={theme().block.diffHighlightRemoved}
                   lineNumberFg={theme().block.diffLineNumber}
                   lineNumberBg={diffBg(theme().block.diffContextBg)}
                   addedLineNumberBg={diffBg(theme().block.diffAddedLineNumberBg)}

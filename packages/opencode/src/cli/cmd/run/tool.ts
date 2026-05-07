@@ -1455,11 +1455,3 @@ export function toolFiletype(input?: string): string | undefined {
 
   return lang
 }
-
-export function toolDiffView(width: number, style: RunDiffStyle | undefined): "unified" | "split" {
-  if (style === "stacked") {
-    return "unified"
-  }
-
-  return width > 120 ? "split" : "unified"
-}
