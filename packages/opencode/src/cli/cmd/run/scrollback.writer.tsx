@@ -57,10 +57,18 @@ export function entryLayout(commit: StreamCommit, body: RunEntryBody = entryBody
       return "block"
     }
 
+    if (commit.phase === "progress" && commit.toolState === "completed" && body.type === "text" && body.content.includes("\n")) {
+      return "block"
+    }
+
     return "inline"
   }
 
   if (commit.kind === "reasoning") {
+    return "block"
+  }
+
+  if (commit.kind === "error") {
     return "block"
   }
 
@@ -85,12 +93,13 @@ export function separatorRows(
 
 export function RunEntryContent(props: {
   commit: StreamCommit
+  body?: RunEntryBody
   theme?: RunTheme
   opts?: ScrollbackOptions
   width?: number
 }) {
   const theme = createMemo(() => props.theme ?? RUN_THEME_FALLBACK)
-  const body = createMemo(() => entryBody(props.commit))
+  const body = createMemo(() => props.body ?? entryBody(props.commit))
   const style = createMemo(() => entryLook(props.commit, theme().entry))
   const syntax = createMemo(() => entrySyntax(props.commit, theme()))
   const color = createMemo(() => entryColor(props.commit, theme()))
@@ -322,6 +331,7 @@ export function RunEntryContent(props: {
 
 export function entryWriter(input: {
   commit: StreamCommit
+  body?: RunEntryBody
   theme?: RunTheme
   opts?: ScrollbackOptions
 }): ScrollbackWriter {
@@ -330,6 +340,7 @@ export function entryWriter(input: {
     (ctx) => (
       <RunEntryContent
         commit={input.commit}
+        body={input.body}
         theme={input.theme}
         opts={{ ...input.opts, suppressBackgrounds: true }}
         width={ctx.width}

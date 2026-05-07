@@ -398,6 +398,7 @@ function createLayer(input: StreamInput) {
           blockerTick: 0,
           blockers: new Map(),
         }
+        const recovering = new Set<string>()
 
         const currentSubagentState = () => {
           if (state.selectedSubagent && !state.subagent.tabs.has(state.selectedSubagent)) {
@@ -473,6 +474,51 @@ function createLayer(input: StreamInput) {
           )
           state.footerView = current
         }
+
+        const recoverQuestion = Effect.fn("RunStreamTransport.recoverQuestion")(function* (partID: string) {
+          if (recovering.has(partID)) {
+            return
+          }
+
+          recovering.add(partID)
+          try {
+            while (!closed && !abort.signal.aborted && !input.footer.isClosed) {
+              if (state.data.questions.length > 0 || !state.data.tools.has(partID)) {
+                return
+              }
+
+              const questions = yield* Effect.promise(() => input.sdk.question.list()).pipe(
+                Effect.map((item) => (item.data ?? []).filter((request) => request.sessionID === input.sessionID)),
+                Effect.orElseSucceed(() => []),
+              )
+              if (state.data.questions.length > 0 || !state.data.tools.has(partID)) {
+                return
+              }
+
+              if (questions.length > 0) {
+                bootstrapSessionData({
+                  data: state.data,
+                  messages: [],
+                  permissions: [],
+                  questions,
+                })
+                for (const request of questions) {
+                  seedBlocker(request.id)
+                }
+                input.trace?.write("question.recover", {
+                  sessionID: input.sessionID,
+                  requests: questions.map((request) => request.id),
+                })
+                syncFooter([])
+                return
+              }
+
+              yield* Effect.sleep("250 millis")
+            }
+          } finally {
+            recovering.delete(partID)
+          }
+        })
 
         const messages = (sessionID: string, limit: number) =>
           Effect.promise(() =>
@@ -676,6 +722,20 @@ function createLayer(input: StreamInput) {
                   limits: input.limits(),
                 })
                 state.data = next.data
+
+                if (
+                  event.type === "message.part.updated" &&
+                  event.properties.part.sessionID === input.sessionID &&
+                  event.properties.part.type === "tool" &&
+                  event.properties.part.tool === "question" &&
+                  event.properties.part.state.status === "running" &&
+                  state.data.questions.length === 0
+                ) {
+                  yield* recoverQuestion(event.properties.part.id).pipe(
+                    Effect.forkIn(scope, { startImmediately: true }),
+                    Effect.asVoid,
+                  )
+                }
 
                 const changed = reduceSubagentData({
                   data: state.subagent,

@@ -328,6 +328,72 @@ describe("run entry body", () => {
     ).toBe(true)
   })
 
+  test("formats completed bash output with a blank line after the command and no trailing blank row", () => {
+    expect(
+      entryBody(
+        toolCommit({
+          tool: "bash",
+          phase: "progress",
+          toolState: "completed",
+          text: [
+            "/tmp/demo",
+            "git status",
+            "On branch demo",
+            "nothing to commit, working tree clean",
+            "",
+          ].join("\n"),
+          state: {
+            status: "completed",
+            input: {
+              command: "git status",
+              workdir: "/tmp/demo",
+            },
+            output: [
+              "/tmp/demo",
+              "git status",
+              "On branch demo",
+              "nothing to commit, working tree clean",
+              "",
+            ].join("\n"),
+            title: "git status",
+            metadata: {
+              exitCode: 0,
+            },
+            time: { start: 1, end: 2 },
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "text",
+      content: "\nOn branch demo\nnothing to commit, working tree clean",
+    })
+  })
+
+  test("renders glob failures as the raw error under the existing header", () => {
+    expect(
+      entryBody(
+        toolCommit({
+          tool: "glob",
+          phase: "final",
+          toolState: "error",
+          state: {
+            status: "error",
+            input: {
+              pattern: "**/*tool*",
+              path: "/tmp/demo/run",
+            },
+            error: "No such file or directory: '/tmp/demo/run'",
+            metadata: {},
+            time: { start: 1, end: 2 },
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "text",
+      content: "No such file or directory: '/tmp/demo/run'",
+    })
+  })
+
   test("renders interrupted assistant finals as text", () => {
     expect(
       entryBody(

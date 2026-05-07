@@ -99,6 +99,15 @@ function user(text: string): StreamCommit {
   }
 }
 
+function error(text: string): StreamCommit {
+  return {
+    kind: "error",
+    text,
+    phase: "start",
+    source: "system",
+  }
+}
+
 function toolPart(tool: string, state: Record<string, unknown>, id: string, messageID: string): ToolPart {
   return {
     id,
@@ -389,6 +398,277 @@ test("coalesces same-line tool progress into one snapshot", async () => {
     } finally {
       destroy(commits)
     }
+  } finally {
+    out.scrollback.destroy()
+  }
+})
+
+test("renders completed bash output with one blank line after the command and before the next group", async () => {
+  const out = await setup()
+
+  try {
+    const lines: string[] = []
+    const take = () => {
+      const commits = claim(out.renderer)
+      try {
+        lines.push(...commits.flatMap((commit) => renderRows(commit).flatMap((row) => row.split("\n"))))
+      } finally {
+        destroy(commits)
+      }
+    }
+
+    await out.scrollback.append(user("/fmt bash"))
+    take()
+    await out.scrollback.append(
+      toolCommit({
+        tool: "bash",
+        phase: "start",
+        toolState: "running",
+        state: {
+          status: "running",
+          input: {
+            command: "git status",
+            workdir: "/tmp/demo",
+            description: "Show git status",
+          },
+          time: { start: 1 },
+        },
+      }),
+    )
+    take()
+    await out.scrollback.append(
+      toolCommit({
+        tool: "bash",
+        phase: "progress",
+        toolState: "completed",
+        text: ["/tmp/demo", "git status", "On branch demo", "nothing to commit, working tree clean", ""].join("\n"),
+        state: {
+          status: "completed",
+          input: {
+            command: "git status",
+            workdir: "/tmp/demo",
+            description: "Show git status",
+          },
+          time: { start: 1, end: 2 },
+        },
+      }),
+    )
+    take()
+    await out.scrollback.append(assistant("oc-run-dev ahead 1"))
+    await out.scrollback.complete()
+    take()
+
+    const output = lines.join("\n")
+    expect(output).toContain("$ git status\n\nOn branch demo")
+    expect(output).toContain("nothing to commit, working tree clean\n\noc-run-dev ahead 1")
+    expect(output).not.toContain("nothing to commit, working tree clean\n\n\noc-run-dev ahead 1")
+  } finally {
+    out.scrollback.destroy()
+  }
+})
+
+test("inserts a spacer before the next tool after completed multiline bash output", async () => {
+  const out = await setup()
+
+  try {
+    const lines: string[] = []
+    const take = () => {
+      const commits = claim(out.renderer)
+      try {
+        lines.push(...commits.flatMap((commit) => renderRows(commit).flatMap((row) => row.split("\n"))))
+      } finally {
+        destroy(commits)
+      }
+    }
+
+    await out.scrollback.append(
+      toolCommit({
+        tool: "bash",
+        phase: "start",
+        toolState: "running",
+        state: {
+          status: "running",
+          input: {
+            command: "pwd; ls -la",
+            workdir: "/tmp/demo",
+            description: "Lists current directory files",
+          },
+          time: { start: 1 },
+        },
+      }),
+    )
+    take()
+    await out.scrollback.append(
+      toolCommit({
+        tool: "bash",
+        phase: "progress",
+        toolState: "completed",
+        text: ["/tmp/demo", "pwd; ls -la", "/tmp/demo", "total 4", "", ""].join("\n"),
+        state: {
+          status: "completed",
+          input: {
+            command: "pwd; ls -la",
+            workdir: "/tmp/demo",
+            description: "Lists current directory files",
+          },
+          output: ["/tmp/demo", "pwd; ls -la", "/tmp/demo", "total 4", "", ""].join("\n"),
+          title: "pwd; ls -la",
+          metadata: {
+            exitCode: 0,
+          },
+          time: { start: 1, end: 2 },
+        },
+      }),
+    )
+    take()
+    await out.scrollback.append(
+      toolCommit({
+        tool: "glob",
+        phase: "start",
+        toolState: "running",
+        state: {
+          status: "running",
+          input: {
+            pattern: "**/*tool*",
+            path: "src/cli/cmd",
+          },
+          time: { start: 3 },
+        },
+      }),
+    )
+    take()
+
+    const output = lines.join("\n")
+    expect(output).toContain("total 4\n\n✱ Glob \"**/*tool*\" in src/cli/cmd")
+  } finally {
+    out.scrollback.destroy()
+  }
+})
+
+test("does not double-space before completed bash output when inline tool headers intervene", async () => {
+  const out = await setup()
+
+  try {
+    const lines: string[] = []
+    const take = () => {
+      const commits = claim(out.renderer)
+      try {
+        lines.push(...commits.flatMap((commit) => renderRows(commit).flatMap((row) => row.split("\n"))))
+      } finally {
+        destroy(commits)
+      }
+    }
+
+    await out.scrollback.append(
+      toolCommit({
+        tool: "bash",
+        phase: "start",
+        toolState: "running",
+        state: {
+          status: "running",
+          input: {
+            command: "ls",
+            workdir: "src/cli/cmd/run",
+            description: "Lists files in run directory",
+          },
+          time: { start: 1 },
+        },
+      }),
+    )
+    take()
+    await out.scrollback.append(
+      toolCommit({
+        tool: "glob",
+        phase: "start",
+        toolState: "running",
+        state: {
+          status: "running",
+          input: {
+            pattern: "**/*tool*",
+            path: "src/cli/cmd/run",
+          },
+          time: { start: 2 },
+        },
+      }),
+    )
+    take()
+    await out.scrollback.append(
+      toolCommit({
+        tool: "grep",
+        phase: "start",
+        toolState: "running",
+        state: {
+          status: "running",
+          input: {
+            pattern: "tool",
+            path: "src/cli/cmd/run",
+          },
+          time: { start: 3 },
+        },
+      }),
+    )
+    take()
+    await out.scrollback.append(
+      toolCommit({
+        tool: "bash",
+        phase: "progress",
+        toolState: "completed",
+        text: ["src/cli/cmd/run", "ls", "demo.ts", "entry.body.ts", "", ""].join("\n"),
+        state: {
+          status: "completed",
+          input: {
+            command: "ls",
+            workdir: "src/cli/cmd/run",
+            description: "Lists files in run directory",
+          },
+          output: ["src/cli/cmd/run", "ls", "demo.ts", "entry.body.ts", "", ""].join("\n"),
+          title: "ls",
+          metadata: {
+            exitCode: 0,
+          },
+          time: { start: 1, end: 4 },
+        },
+      }),
+    )
+    take()
+
+    const output = lines.join("\n")
+    expect(output).toContain('✱ Grep "tool" in src/cli/cmd/run\n\ndemo.ts')
+    expect(output).not.toContain('✱ Grep "tool" in src/cli/cmd/run\n\n\ndemo.ts')
+  } finally {
+    out.scrollback.destroy()
+  }
+})
+
+test("renders plain errors with one blank line before and after the error block", async () => {
+  const out = await setup()
+
+  try {
+    const lines: string[] = []
+    const take = (check?: (commits: ClaimedCommit[]) => void) => {
+      const commits = claim(out.renderer)
+      try {
+        check?.(commits)
+        lines.push(...commits.flatMap((commit) => renderRows(commit).flatMap((row) => row.split("\n"))))
+      } finally {
+        destroy(commits)
+      }
+    }
+
+    await out.scrollback.append(user("/fmt error"))
+    take()
+    await out.scrollback.append(error("demo error event"))
+    take((commits) => {
+      expect(commits.at(-1)?.trailingNewline).toBe(false)
+    })
+    await out.scrollback.append(assistant("next line"))
+    await out.scrollback.complete()
+    take()
+
+    const output = lines.join("\n")
+    expect(output).toContain("› /fmt error\n\ndemo error event")
+    expect(output).toContain("demo error event\n\nnext line")
+    expect(output).not.toContain("demo error event\n\n\nnext line")
   } finally {
     out.scrollback.destroy()
   }

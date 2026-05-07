@@ -363,6 +363,29 @@ function syncPermission(data: SessionData, part: ToolPart): FooterOutput | undef
   }
 }
 
+// Question tool replies can complete without a matching question.replied event.
+// When that happens, drop the recovered pending request tied to this tool call so
+// the footer can return to the next blocker or to the prompt.
+function syncQuestion(data: SessionData, part: ToolPart): FooterOutput | undefined {
+  if (part.tool !== "question") {
+    return undefined
+  }
+
+  if (part.state.status !== "completed" && part.state.status !== "error") {
+    return undefined
+  }
+
+  const next = data.questions.filter(
+    (request) => request.tool?.messageID !== part.messageID || request.tool?.callID !== part.callID,
+  )
+  if (next.length === data.questions.length) {
+    return undefined
+  }
+
+  data.questions = next
+  return queueFooter(data)
+}
+
 function toolStatus(part: ToolPart): string {
   if (part.tool !== "task") {
     return `running ${part.tool}`
@@ -761,7 +784,7 @@ export function reduceSessionData(input: SessionDataInput): SessionDataOutput {
     }
 
     if (part.type === "tool") {
-      const view = syncPermission(data, part)
+      const view = syncPermission(data, part) ?? syncQuestion(data, part)
 
       if (part.state.status === "running") {
         if (data.ids.has(part.id)) {
@@ -814,9 +837,14 @@ export function reduceSessionData(input: SessionDataInput): SessionDataOutput {
       }
 
       if (part.state.status === "error") {
+        const seen = data.tools.has(part.id)
         data.tools.delete(part.id)
         if (data.ids.has(part.id)) {
           return out(data, commits, view)
+        }
+
+        if (!seen) {
+          commits.push(startTool(part))
         }
 
         data.ids.add(part.id)

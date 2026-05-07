@@ -65,6 +65,25 @@ function commitMarkdownBlocks(input: {
   return true
 }
 
+function staticBody(commit: StreamCommit, body: RunEntryBody, spaced: number): RunEntryBody {
+  if (spaced === 0 || body.type !== "text") {
+    return body
+  }
+
+  if (commit.kind !== "tool" || commit.phase !== "progress" || commit.toolState !== "completed") {
+    return body
+  }
+
+  if (!body.content.startsWith("\n")) {
+    return body
+  }
+
+  return {
+    ...body,
+    content: body.content.replace(/^\n/, ""),
+  }
+}
+
 export class RunScrollbackStream {
   private tail: StreamCommit | undefined
   private rendered: StreamCommit | undefined
@@ -323,11 +342,13 @@ export class RunScrollbackStream {
     }
 
     const rows = separatorRows(this.rendered, commit, body)
-    this.writeSpacer(rows || (!this.rendered && this.wrote ? 1 : 0))
+    const spaced = rows || (!this.rendered && this.wrote ? 1 : 0)
+    this.writeSpacer(spaced)
 
     this.renderer.writeToScrollback(
       entryWriter({
         commit,
+        body: staticBody(commit, body, spaced),
         theme: this.theme,
         opts: {
           diffStyle: this.diffStyle,

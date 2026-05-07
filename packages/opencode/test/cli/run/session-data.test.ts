@@ -337,6 +337,45 @@ describe("run session data", () => {
     ])
   })
 
+  test("synthesizes a glob start before an error when the running update is missed", () => {
+    expect(
+      reduce(
+        createSessionData(),
+        tool({
+          id: "tool-1",
+          messageID: "msg-1",
+          tool: "glob",
+          state: {
+            status: "error",
+            input: {
+              pattern: "**/*tool*",
+              path: "/tmp/demo/run",
+            },
+            error: "No such file or directory: '/tmp/demo/run'",
+          },
+        }),
+      ).commits,
+    ).toEqual([
+      expect.objectContaining({
+        kind: "tool",
+        tool: "glob",
+        phase: "start",
+        partID: "tool-1",
+        text: "running glob",
+        toolState: "running",
+      }),
+      expect.objectContaining({
+        kind: "tool",
+        tool: "glob",
+        phase: "final",
+        partID: "tool-1",
+        text: "No such file or directory: '/tmp/demo/run'",
+        toolState: "error",
+        toolError: "No such file or directory: '/tmp/demo/run'",
+      }),
+    ])
+  })
+
   test("flushInterrupted emits one interrupted final per live part", () => {
     const data = reduce(
       createSessionData(),

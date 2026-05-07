@@ -114,6 +114,13 @@ export function entryFlags(commit: StreamCommit): EntryFlags {
     }
   }
 
+  if (commit.kind === "error") {
+    return {
+      startOnNewLine: true,
+      trailingNewline: false,
+    }
+  }
+
   return {
     startOnNewLine: true,
     trailingNewline: true,
@@ -141,7 +148,11 @@ export function entryCanStream(commit: StreamCommit, body: RunEntryBody): boolea
     return false
   }
 
-  return commit.kind === "assistant" || commit.kind === "reasoning" || commit.kind === "tool"
+  if (commit.kind === "tool") {
+    return commit.toolState !== "completed"
+  }
+
+  return commit.kind === "assistant" || commit.kind === "reasoning"
 }
 
 export function entryBody(commit: StreamCommit): RunEntryBody {

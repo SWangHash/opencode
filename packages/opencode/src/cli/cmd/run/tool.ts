@@ -208,21 +208,25 @@ function span(state: ToolDict): string {
 }
 
 function fail(ctx: ToolFrame): string {
+  const error = toolError(ctx)
+  if (error) {
+    return `✖ ${ctx.name} failed: ${error}`
+  }
+
+  return `✖ ${ctx.name} failed`
+}
+
+function toolError(ctx: ToolFrame): string {
   if (ctx.error) {
-    return `✖ ${ctx.name} failed: ${ctx.error}`
+    return ctx.error
   }
 
   const state = text(ctx.state.error).trim()
   if (state) {
-    return `✖ ${ctx.name} failed: ${state}`
+    return state
   }
 
-  const raw = ctx.raw.trim()
-  if (raw) {
-    return `✖ ${ctx.name} failed: ${raw}`
-  }
-
-  return `✖ ${ctx.name} failed`
+  return ctx.raw.trim()
 }
 
 function fallbackStart(ctx: ToolFrame): string {
@@ -630,8 +634,13 @@ function scrollBashStart(p: ToolProps<typeof BashTool>): string {
 function scrollBashProgress(p: ToolProps<typeof BashTool>): string {
   const out = stripAnsi(p.frame.raw)
   const cmd = (p.input.command ?? "").trim()
+  const fmt = (text: string) => {
+    const body = text.replace(/^\n+/, "").replace(/\n+$/, "")
+    return body ? `\n${body}` : ""
+  }
+
   if (!cmd) {
-    return out
+    return out.replace(/\n+$/, "")
   }
 
   const wdRaw = (p.input.workdir ?? "").trim()
@@ -641,30 +650,18 @@ function scrollBashProgress(p: ToolProps<typeof BashTool>): string {
   const second = (lines[1] || "").trim()
 
   if (wd && (first === wd || first === wdRaw) && second === cmd) {
-    const body = lines.slice(2).join("\n")
-    if (body.length > 0) {
-      return body
-    }
-    return out
+    return fmt(lines.slice(2).join("\n"))
   }
 
   if (first === cmd || first === `$ ${cmd}`) {
-    const body = lines.slice(1).join("\n")
-    if (body.length > 0) {
-      return body
-    }
-    return out
+    return fmt(lines.slice(1).join("\n"))
   }
 
   if (wd && (first === `${wd} ${cmd}` || first === `${wdRaw} ${cmd}`)) {
-    const body = lines.slice(1).join("\n")
-    if (body.length > 0) {
-      return body
-    }
-    return out
+    return fmt(lines.slice(1).join("\n"))
   }
 
-  return out
+  return fmt(out)
 }
 
 function scrollBashFinal(p: ToolProps<typeof BashTool>): string {
@@ -841,6 +838,10 @@ function scrollGlobStart(p: ToolProps<typeof GlobTool>): string {
   }
 
   return `${head} in ${toolPath(dir)}`
+}
+
+function scrollGlobFinal(p: ToolProps<typeof GlobTool>): string {
+  return toolError(p.frame) || fail(p.frame)
 }
 
 function scrollGrepStart(p: ToolProps<typeof GrepTool>): string {
@@ -1114,6 +1115,7 @@ const TOOL_RULES = {
     run: runGlob,
     scroll: {
       start: scrollGlobStart,
+      final: scrollGlobFinal,
     },
     permission: permGlob,
   },
