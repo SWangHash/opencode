@@ -369,6 +369,75 @@ describe("run entry body", () => {
     })
   })
 
+  test("falls back to patch summary when apply_patch has no visible diff items", () => {
+    expect(
+      entryBody(
+        toolCommit({
+          tool: "apply_patch",
+          state: {
+            status: "completed",
+            input: {
+              patchText: "*** Begin Patch\n*** End Patch",
+            },
+            output: "",
+            title: "",
+            metadata: {
+              files: [
+                {
+                  type: "update",
+                  filePath: "src/a.ts",
+                  relativePath: "src/a.ts",
+                  diff: "@@ -1 +1 @@\n-old\n+new\n",
+                },
+              ],
+            },
+            time: { start: 1, end: 2 },
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "text",
+      content: "~ Patched src/a.ts",
+    })
+  })
+
+  test("suppresses redundant patched rows when apply_patch also created a file", () => {
+    expect(
+      entryBody(
+        toolCommit({
+          tool: "apply_patch",
+          state: {
+            status: "completed",
+            input: {
+              patchText: "*** Begin Patch\n*** End Patch",
+            },
+            output: "",
+            title: "",
+            metadata: {
+              files: [
+                {
+                  type: "update",
+                  filePath: "src/a.ts",
+                  relativePath: "src/a.ts",
+                  diff: "@@ -1 +1 @@\n-old\n+new\n",
+                },
+                {
+                  type: "add",
+                  filePath: "README-demo.md",
+                  relativePath: "README-demo.md",
+                },
+              ],
+            },
+            time: { start: 1, end: 2 },
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "text",
+      content: "+ Created README-demo.md",
+    })
+  })
+
   test("renders glob failures as the raw error under the existing header", () => {
     expect(
       entryBody(

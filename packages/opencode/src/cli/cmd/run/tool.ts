@@ -172,14 +172,6 @@ function list<T>(v: unknown): T[] {
   return v
 }
 
-function done(name: string, time: string): string {
-  if (!time) {
-    return `└ ${name} completed`
-  }
-
-  return `└ ${name} completed · ${time}`
-}
-
 function info(data: ToolDict, skip: string[] = []): string {
   const list = Object.entries(data).filter(([key, val]) => {
     if (skip.includes(key)) {
@@ -247,7 +239,12 @@ function fallbackFinal(ctx: ToolFrame): string {
     return ctx.raw.trim()
   }
 
-  return done(ctx.name, span(ctx.state))
+  const time = span(ctx.state)
+  if (!time) {
+    return `${ctx.name} completed`
+  }
+
+  return `${ctx.name} completed · ${time}`
 }
 
 export function toolPath(input?: string, opts: { home?: boolean } = {}): string {
@@ -539,28 +536,34 @@ function snapPatch(p: ToolProps<typeof ApplyPatchTool>): ToolSnapshot | undefine
     return undefined
   }
 
+  const items = files.flatMap((file) => {
+    if (!file || typeof file !== "object") {
+      return []
+    }
+
+    const diff = typeof file.patch === "string" ? file.patch : ""
+    if (!diff.trim()) {
+      return []
+    }
+
+    const name = file.movePath || file.filePath || file.relativePath
+    return [
+      {
+        title: patchTitle(file),
+        diff,
+        file: name,
+        deletions: typeof file.deletions === "number" ? file.deletions : 0,
+      },
+    ]
+  })
+
+  if (items.length === 0) {
+    return undefined
+  }
+
   return {
     kind: "diff",
-    items: files.flatMap((file) => {
-      if (!file || typeof file !== "object") {
-        return []
-      }
-
-      const diff = typeof file.patch === "string" ? file.patch : ""
-      if (!diff.trim()) {
-        return []
-      }
-
-      const name = file.movePath || file.filePath || file.relativePath
-      return [
-        {
-          title: patchTitle(file),
-          diff,
-          file: name,
-          deletions: typeof file.deletions === "number" ? file.deletions : 0,
-        },
-      ]
-    }),
+    items,
   }
 }
 
@@ -668,10 +671,14 @@ function scrollBashFinal(p: ToolProps<typeof BashTool>): string {
   const code = p.metadata.exit ?? num(p.frame.meta.exitCode) ?? num(p.frame.meta.exit_code)
   const time = span(p.frame.state)
   if (code === undefined) {
-    return done("bash", time)
+    if (!time) {
+      return "bash completed"
+    }
+
+    return `bash completed · ${time}`
   }
 
-  return `└ bash completed (exit ${code})${time ? ` · ${time}` : ""}`
+  return `bash completed (exit ${code})${time ? ` · ${time}` : ""}`
 }
 
 function scrollReadStart(p: ToolProps<typeof ReadTool>): string {
@@ -719,17 +726,27 @@ function scrollPatchFinal(p: ToolProps<typeof ApplyPatchTool>): string {
   }
 
   const files = list<PatchFile>(p.frame.meta.files)
-  const head = done("patch", span(p.frame.state))
   if (files.length === 0) {
-    return head
+    const time = span(p.frame.state)
+    if (!time) {
+      return "patch"
+    }
+
+    return `patch · ${time}`
   }
 
-  const rows = [head, ...files.slice(0, 6).map(patchLine)]
-  if (files.length > 6) {
-    rows.push(`... and ${files.length - 6} more`)
+  const show_updates = !files.some((file) => file?.type && file.type !== "update")
+  const shown = files.filter((file) => show_updates || file.type !== "update")
+  const rows = shown.slice(0, 6).map(patchLine)
+  if (shown.length > 6) {
+    rows.push(`... and ${shown.length - 6} more`)
   }
 
-  return rows.join("\n")
+  if (rows.length > 0) {
+    return rows.join("\n")
+  }
+
+  return patchLine(files[0]!)
 }
 
 function scrollTaskStart(_: ToolProps<typeof TaskTool>): string {
@@ -774,8 +791,13 @@ function scrollTodoStart(_: ToolProps<typeof TodoWriteTool>): string {
 
 function scrollTodoFinal(p: ToolProps<typeof TodoWriteTool>): string {
   const items = list<{ status?: string }>(p.input.todos)
+  const time = span(p.frame.state)
   if (items.length === 0) {
-    return done("todos", span(p.frame.state))
+    if (!time) {
+      return "0 todos"
+    }
+
+    return `0 todos · ${time}`
   }
 
   const doneN = items.filter((item) => item.status === "completed").length
@@ -792,7 +814,11 @@ function scrollTodoFinal(p: ToolProps<typeof TodoWriteTool>): string {
     tail.push(`${left} pending`)
   }
 
-  return `${done("todos", span(p.frame.state))} · ${tail.join(" · ")}`
+  if (time) {
+    tail.push(time)
+  }
+
+  return tail.join(" · ")
 }
 
 function scrollQuestionStart(_: ToolProps<typeof QuestionTool>): string {
@@ -802,11 +828,16 @@ function scrollQuestionStart(_: ToolProps<typeof QuestionTool>): string {
 function scrollQuestionFinal(p: ToolProps<typeof QuestionTool>): string {
   const q = p.input.questions ?? []
   const a = p.metadata.answers ?? []
+  const time = span(p.frame.state)
   if (q.length === 0) {
-    return done("questions", span(p.frame.state))
+    if (!time) {
+      return "0 questions"
+    }
+
+    return `0 questions · ${time}`
   }
 
-  const rows = [done("questions", span(p.frame.state))]
+  const rows: string[] = []
   for (const [i, item] of q.slice(0, 4).entries()) {
     const prompt = item.question
     const reply = a[i] ?? []
