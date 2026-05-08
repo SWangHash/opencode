@@ -942,6 +942,8 @@ export function Prompt(props: PromptProps) {
       commands: [
         {
           name: "prompt.history.previous",
+          title: "Previous prompt history",
+          category: "Prompt",
           run() {
             if (input.cursorOffset !== 0) {
               input.cursorOffset = 0
@@ -978,6 +980,8 @@ export function Prompt(props: PromptProps) {
       commands: [
         {
           name: "prompt.history.next",
+          title: "Next prompt history",
+          category: "Prompt",
           run() {
             if (input.cursorOffset !== input.plainText.length) {
               input.cursorOffset = input.plainText.length

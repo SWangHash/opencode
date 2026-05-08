@@ -59,6 +59,8 @@ function View(props: { api: TuiPluginApi; sessionID: string }) {
     bindings: [
       {
         key: "escape",
+        desc: "Back to session",
+        group: "Session",
         cmd() {
           props.api.route.navigate("session", { sessionID: props.sessionID })
         },
